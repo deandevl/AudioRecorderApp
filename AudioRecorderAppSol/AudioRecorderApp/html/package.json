@@ -1,0 +1,43 @@
+{
+  "name": "audiorecorder",
+  "version": "1.0.0",
+  "description": "Web page application hosted by a local server that records live streaming web audio sites for specific times/lengths. ",
+  "main": "src/app.js",
+  "scripts": {
+    "build": "parcel build index.html"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/deandevl/AudioRecorder.git"
+  },
+  "keywords": [
+    "AudioRecorder",
+    "Vue.js"
+  ],
+  "author": "Rick Dean",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/deandevl/AudioRecorder/issues"
+  },
+  "browserslist": [
+    "since 2017-06"
+  ],
+  "homepage": "https://github.com/deandevl/AudioRecorder#readme",
+  "dependencies": {
+    "buttoncomp": "git+https://github.com/deandevl/ButtonComp.git",
+    "checkercomp": "git+https://github.com/deandevl/CheckerComp.git#develop",
+    "inputcomp": "git+https://github.com/deandevl/InputComp.git",
+    "progresscomp": "git+https://github.com/deandevl/ProgressComp.git#develop",
+    "selectcomp": "git+https://github.com/deandevl/SelectComp.git",
+    "tabcomp": "git+https://github.com/deandevl/TabComp.git#develop",
+    "tablecomp": "git+https://github.com/deandevl/TableComp",
+    "vue": "^2.5.9",
+    "vue-router": "^3.0.1"
+  },
+  "devDependencies": {
+    "@vue/component-compiler-utils": "^3.0.0",
+    "less": "^3.9.0",
+    "parcel-bundler": "^1.12.3",
+    "vue-template-compiler": "^2.6.10"
+  }
+}
