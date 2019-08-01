@@ -19,9 +19,11 @@ namespace AudioRecorderApp {
     private readonly string _serverBaseFolder;
     private readonly Helpers _helpers;
     private readonly Dictionary<string, Action> _actions;
+    private readonly JavaScriptSerializer _serializer;
+    private readonly LiteDatabase _db;
+    
     private Dictionary<string, object> _requestDictionary;
     private HttpConnectionDetails _httpDetails;
-    private readonly LiteDatabase _db;
     private LiteCollection<AudioProgram> _programsCollection;
     private LiteCollection<AudioGroup> _groupsCollection;
     private LiteCollection<AudioSession> _sessionCollection;
@@ -37,9 +39,9 @@ namespace AudioRecorderApp {
     
     public Handlers(string serverBaseFolder, string databasePath) {
       _serverBaseFolder = serverBaseFolder;
+      _serializer = new JavaScriptSerializer();
       _helpers = new Helpers();
-      JavaScriptSerializer jsonSerializer = new JavaScriptSerializer();
-      
+
       _db = new LiteDatabase(databasePath);
       _programsCollection = _db.GetCollection<AudioProgram>("ProgramsCollection");
       _groupsCollection = _db.GetCollection<AudioGroup>("GroupsCollection");
@@ -72,7 +74,7 @@ namespace AudioRecorderApp {
       _actions = new Dictionary<string, Action>() {
         {"getGroupNames", () => {
           List<string> groupNames = GetGroupNames();
-          string responseStr = jsonSerializer.Serialize(groupNames);
+          string responseStr = _serializer.Serialize(groupNames);
           _helpers.SendHttpTextResponse(_httpDetails.Response,responseStr);
         }},
         {"getSession", () => {
@@ -91,11 +93,11 @@ namespace AudioRecorderApp {
         {"getPrograms", () => {
           string groupName = (string)_requestDictionary["GroupName"];
           List<Dictionary<string, object>> programsList = GetPrograms(groupName);
-          string responseStr = jsonSerializer.Serialize(programsList);
+          string responseStr = _serializer.Serialize(programsList);
           _helpers.SendHttpTextResponse(_httpDetails.Response,responseStr);
         }},
         {"addProgram", () => {
-          Dictionary<string,object> programDict = _helpers.JsonToDictionary(_requestDictionary["program"].ToString());
+          Dictionary<string,object> programDict = (Dictionary<string, object>)_requestDictionary["program"];
           AudioProgram newProgram = AddProgram(programDict);
           if(newProgram != null) {
             //return both a list of group names and the new program
@@ -104,14 +106,14 @@ namespace AudioRecorderApp {
               {"backup_program", newProgram.Program()},
               {"group_names", groupNames}
             };
-            string responseStr = _helpers.DictionaryToJson(responseDict);
+            string responseStr = _serializer.Serialize(responseDict);
             _helpers.SendHttpTextResponse(_httpDetails.Response,responseStr);
           } else {
             _helpers.SendHttpResponse(400, "Duplicate Program Found",new byte[0],"text/html","MoneyTracker Server", _httpDetails.Response);
           }
         }},
         {"deleteProgram", () => {
-          Dictionary<string,object> programDict = _helpers.JsonToDictionary(_requestDictionary["program"].ToString());
+          Dictionary<string,object> programDict = (Dictionary<string, object>)_requestDictionary["program"];
           string groupName = (string)programDict["GroupName"];
           string programName = (string)programDict["Name"];
           AudioProgram program = _programsCollection.FindOne(x => x.GroupName == groupName && x.Name == programName);
@@ -124,14 +126,14 @@ namespace AudioRecorderApp {
               {"group_names", groupNames}
             };
 
-            string responseStr = _helpers.DictionaryToJson(responseDict);
+            string responseStr = _serializer.Serialize(responseDict);
             _helpers.SendHttpTextResponse(_httpDetails.Response, responseStr);
           } else {
             _helpers.SendHttpResponse(400, "Could not locate program",new byte[0],"text/html","MoneyTracker Server", _httpDetails.Response);
           }
         }},
         {"updateProgram", () => {
-          Dictionary<string,object> programDict = _helpers.JsonToDictionary(_requestDictionary["program"].ToString());
+          Dictionary<string,object> programDict = (Dictionary<string, object>)_requestDictionary["program"];
           AudioProgram backupProgram = UpdateProgram(programDict);
           if(backupProgram != null) {
             //return the current set of group names
@@ -140,7 +142,7 @@ namespace AudioRecorderApp {
               {"backup_program", backupProgram.Program()},
               {"group_names", groupNames}
             };
-            string responseStr = _helpers.DictionaryToJson(responseDict);
+            string responseStr = _serializer.Serialize(responseDict);
             _helpers.SendHttpTextResponse(_httpDetails.Response, responseStr);
           } else {
             _helpers.SendHttpResponse(400, "Could not locate program. Try adding instead of updating ",new byte[0],"text/html","MoneyTracker Server", _httpDetails.Response);
@@ -163,7 +165,7 @@ namespace AudioRecorderApp {
       string message = (string)wsArgs.Message;
       string pathOrFileName = details.PathOrFileName;  //debug
       NetworkStream stream = details.Stream;
-      Dictionary<string, object> dict = _helpers.JsonToDictionary(message);
+      Dictionary<string, object> dict = _serializer.Deserialize<Dictionary<string, object>>(message);
 
       string action = (string)dict["action"];
       if(action.Equals("startRecording")) {
@@ -188,7 +190,7 @@ namespace AudioRecorderApp {
       string body = (string)httpArgs.Body;
       
       if(_httpDetails.HttpPath == "audio") {
-        _requestDictionary = _helpers.JsonToDictionary(body);
+        _requestDictionary = _serializer.Deserialize<Dictionary<string, object>>(body);
         _actions[(string)_requestDictionary["action"]]();
       }
     }
@@ -211,9 +213,9 @@ namespace AudioRecorderApp {
       if(program == null) {
         AudioProgram newProgram = new AudioProgram();
         newProgram.Name = (string)programDict["Name"];
-        newProgram.Start = Convert.ToInt32(programDict["Start"]);
-        newProgram.Stop = Convert.ToInt32(programDict["Stop"]);
-        newProgram.Dow = _helpers.JArrayToArrayList(programDict["Dow"]);
+        newProgram.Start = (int)programDict["Start"];
+        newProgram.Stop = (int)programDict["Stop"];
+        newProgram.Dow = (ArrayList)programDict["Dow"];
         newProgram.Url = (string)programDict["Url"];
         newProgram.GroupId = groupId;
         newProgram.GroupName = groupName;
@@ -266,9 +268,9 @@ namespace AudioRecorderApp {
         AudioProgram audioProgram = new AudioProgram();
         audioProgram.Id = currentProgram.Id;
         audioProgram.Name = updateProgramName;
-        audioProgram.Start = Convert.ToInt32(programDict["Start"]);
-        audioProgram.Stop = Convert.ToInt32(programDict["Stop"]);
-        audioProgram.Dow = _helpers.JArrayToArrayList(programDict["Dow"]);
+        audioProgram.Start = (int)programDict["Start"];
+        audioProgram.Stop = (int)programDict["Stop"];
+        audioProgram.Dow = (ArrayList)programDict["Dow"];
         audioProgram.Url = (string)programDict["Url"];
         audioProgram.GroupName = updateGroupName;
         audioProgram.GroupId = groupId;
@@ -355,7 +357,7 @@ namespace AudioRecorderApp {
         if(programsList.Count > 0) {
           //what is today's dow
           DateTime today = DateTime.Now;
-          long dow = Convert.ToInt64(today.DayOfWeek);
+          int dow = (int)today.DayOfWeek;
           int now24 = today.Hour * 100 + today.Minute - 1;
 
           //get the programs for today
@@ -406,8 +408,8 @@ namespace AudioRecorderApp {
     private void RecordingStart(){
       Dictionary<string, object> programDict = _programsToRecord[_currentRecordingIdx];
       string name = (string)programDict["Name"];
-      int start = Convert.ToInt32(programDict["Start"]);
-      int stop = Convert.ToInt32(programDict["Stop"]);
+      int start = (int)programDict["Start"];
+      int stop = (int)programDict["Stop"];
       string url = (string)programDict["Url"];
       
       //compute duration
